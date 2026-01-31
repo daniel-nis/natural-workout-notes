@@ -1,8 +1,8 @@
 export const typeDefs = `#graphql
   type ParsedExercise {
     exercise: String!
-    weight: Int!
-    sets: Int!
+    weight: Int
+    sets: Int
     reps: Int
     duration: Int
   }

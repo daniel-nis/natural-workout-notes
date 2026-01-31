@@ -3,8 +3,8 @@ import { z } from 'zod'
 // Zod schema - single source of truth for validation
 export const ParsedExerciseSchema = z.object({
   exercise: z.string(),
-  weight: z.number().int().min(0),
-  sets: z.number().int().min(1),
+  weight: z.number().int().min(0).nullable(),
+  sets: z.number().int().min(1).nullable(),
   reps: z.number().int().min(1).nullable(),
   duration: z.number().int().min(1).nullable(),
 })

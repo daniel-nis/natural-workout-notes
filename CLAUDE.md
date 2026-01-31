@@ -223,7 +223,28 @@ return validated
 | Timed exercises (plank 3x30s) | ✅ |
 | Unit conversion (kg → lbs) | ✅ |
 | Messy/conversational input | ✅ |
-| Exercise normalization | ⚠️ Relies on LLM knowledge |
+| Partial info (weight only) | ✅ |
+| PR/max inference (1x1) | ✅ |
+| "for X reps" inference | ✅ |
+| Niche exercises | ✅ Relies on LLM knowledge |
+
+### Inference Rules
+
+The LLM applies these rules to extract maximum info while avoiding false assumptions:
+
+| Pattern | Inference |
+|---------|-----------|
+| `bench 135 3x10` | Full info: weight=135, sets=3, reps=10 |
+| `bench 135 for 10` | "for X" implies single set: sets=1, reps=10 |
+| `3 sets of bench 135` | Sets explicit, reps unknown: sets=3, reps=null |
+| `bench 135` | Weight only, ambiguous: sets=null, reps=null |
+| `hit 315 squat PR` | PR/max implies: sets=1, reps=1 |
+| `bench max 225` | Max implies: sets=1, reps=1 |
+| `1rm deadlift 405` | 1RM explicit: sets=1, reps=1 |
+| `pushups` | Bodyweight, no info: weight=0, sets=null, reps=null |
+| `did squats today` | Exercise only: weight=null, sets=null, reps=null |
+
+**Philosophy:** Only infer when unambiguous. Null = unknown, not zero. Client can prompt user to fill in missing data.
 
 ### Priority: LLM Response Consistency
 
@@ -243,11 +264,11 @@ Integration tests are the source of truth for LLM behavior.
 
 ```typescript
 interface ParsedExercise {
-  exercise: string        // Full canonical name
-  weight: number          // Pounds, 0 for bodyweight
-  sets: number            // Number of sets
-  reps: number | null     // null for timed exercises
-  duration: number | null // Seconds, null for rep-based
+  exercise: string            // Full canonical name (required)
+  weight: number | null       // Pounds, 0 for bodyweight, null if not specified
+  sets: number | null         // null if not specified
+  reps: number | null         // null if not specified or timed exercise
+  duration: number | null     // Seconds, null if not specified or rep-based
 }
 ```
 
@@ -256,8 +277,8 @@ interface ParsedExercise {
 ```graphql
 type ParsedExercise {
   exercise: String!
-  weight: Int!
-  sets: Int!
+  weight: Int
+  sets: Int
   reps: Int
   duration: Int
 }
