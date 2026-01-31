@@ -1,33 +1,66 @@
-import { ParsedExercise } from '../types';
-import { callLLM } from './llm';
+import { ParsedExercise, validateParsedExercises } from '../types'
+import { ParserError, ValidationError } from '../errors'
+import { LLMClient, llmClient as defaultLLMClient } from './llm'
 
-const SYSTEM_PROMPT = `You are a workout parser. Convert raw workout notes into structured JSON.
+const SYSTEM_PROMPT = `You parse workout notes into structured JSON.
 
-INPUT: Informal workout text (e.g., "db bench 100 2x5")
+OUTPUT: JSON array only. No markdown, no explanation.
 
-OUTPUT: JSON array only. No markdown, no explanation. Just valid JSON.
+SCHEMA:
+{
+  "exercise": string,   // Full name with equipment (e.g., "Barbell Bench Press")
+  "weight": number,     // Pounds. 0 for bodyweight.
+  "sets": number,
+  "reps": number | null,      // null for timed exercises
+  "duration": number | null   // seconds, null for rep-based
+}
 
-Each exercise should have:
-- exercise: Full canonical name (e.g., "Dumbbell Bench Press" not "db bench")
-- weight: Number only, assume lbs unless specified
-- sets: Number
-- reps: Number
+RULES:
+- Expand abbreviations: bb=Barbell, db=Dumbbell, ohp=Overhead Press, rdl=Romanian Deadlift
+- Always include equipment type when applicable (Barbell, Dumbbell, Cable, Machine)
+- Convert kg to lbs: multiply by 2.2, round to nearest 5
+- Bodyweight exercises: weight = 0
+- Timed exercises (plank, holds): use duration in seconds, reps = null
+- Rep-based exercises: use reps, duration = null
+- If unparseable, return []
 
 EXAMPLES:
+"bb bench 135 3x10" → [{"exercise": "Barbell Bench Press", "weight": 135, "sets": 3, "reps": 10, "duration": null}]
+"pullups 4x8" → [{"exercise": "Pull-ups", "weight": 0, "sets": 4, "reps": 8, "duration": null}]
+"plank 3x30s" → [{"exercise": "Plank", "weight": 0, "sets": 3, "reps": null, "duration": 30}]
+"squat 60kg 5x5" → [{"exercise": "Barbell Back Squat", "weight": 135, "sets": 5, "reps": 5, "duration": null}]`
 
-Input: "db bench 100 2x5"
-Output: [{"exercise": "Dumbbell Bench Press", "weight": 100, "sets": 2, "reps": 5}]
+export async function parseWorkoutText(
+  input: string,
+  llm: LLMClient = defaultLLMClient
+): Promise<ParsedExercise[]> {
+  const trimmedInput = input.trim()
+  
+  if (!trimmedInput) {
+    return []
+  }
 
-Input: "squat 225 3x8
-lat pulldown 120 4x10"
-Output: [{"exercise": "Barbell Back Squat", "weight": 225, "sets": 3, "reps": 8}, {"exercise": "Lat Pulldown", "weight": 120, "sets": 4, "reps": 10}]
+  try {
+    const response = await llm.call(SYSTEM_PROMPT, trimmedInput)
+    const parsed = parseJSON(response)
+    return validateParsedExercises(parsed)
+  } catch (error) {
+    if (error instanceof ValidationError) throw error
+    if (error instanceof ParserError) throw error
+    throw new ParserError('Failed to parse workout text', error)
+  }
+}
 
-Input: "pushups 3x20"
-Output: [{"exercise": "Push-ups", "weight": 0, "sets": 3, "reps": 20}]
-
-Return ONLY the JSON array. No other text.`
-
-export async function parseWorkoutText(input: string): Promise<ParsedExercise[]> {
-    const response = await callLLM(SYSTEM_PROMPT, input);
-    return JSON.parse(response);
-};
+function parseJSON(text: string): unknown {
+  try {
+    // Handle potential markdown code blocks
+    const cleaned = text
+      .replace(/```json\n?/g, '')
+      .replace(/```\n?/g, '')
+      .trim()
+    
+    return JSON.parse(cleaned)
+  } catch (error) {
+    throw new ValidationError('LLM returned invalid JSON', error)
+  }
+}

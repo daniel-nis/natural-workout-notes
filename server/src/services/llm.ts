@@ -1,20 +1,36 @@
-import OpenAI from 'openai';
-
-console.log('API Key:', process.env.KIMI_API_KEY ? 'Loaded' : 'MISSING')
+import OpenAI from 'openai'
+import { config } from '../config'
+import { LLMError } from '../errors'
 
 const client = new OpenAI({
-    apiKey: process.env['KIMI_API_KEY'],
-    baseURL: 'https://api.moonshot.ai/v1'
-});
+  apiKey: config.llm.apiKey,
+  baseURL: config.llm.baseURL,
+})
 
-export async function callLLM(systemPrompt: string, userInput: string): Promise<string> {
-    const response = await client.chat.completions.create({
-        model: "kimi-k2.5",
+export interface LLMClient {
+  call(systemPrompt: string, userInput: string): Promise<string>
+}
+
+export const llmClient: LLMClient = {
+  async call(systemPrompt: string, userInput: string): Promise<string> {
+    try {
+      const response = await client.chat.completions.create({
+        model: config.llm.model,
         messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userInput }
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userInput },
         ],
-    });
+      })
 
-    return response.choices[0].message.content || 'failed to get response';
+      const content = response.choices[0]?.message?.content
+      if (!content) {
+        throw new LLMError('LLM returned empty response')
+      }
+
+      return content
+    } catch (error) {
+      if (error instanceof LLMError) throw error
+      throw new LLMError('LLM request failed', error)
+    }
+  },
 }
