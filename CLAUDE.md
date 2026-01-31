@@ -394,6 +394,12 @@ When building frontend:
 - Component-level code splitting
 - Optimistic UI updates
 
+### Saving Workout Template
+
+- Save template as a user-set command, like "/push"
+- example of what the template would show: "Dumbbell Bench Press:" {previous weight placeholder}, {previous sets placeholder}, {previous reps placeholder}
+- user types new weight, presses space which moves to sets, enters sets, presses space which moves to reps, presses enter
+
 ### Relay Migration
 
 After comfortable with Apollo:
