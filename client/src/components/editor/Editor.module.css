@@ -1,0 +1,28 @@
+.editor {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  background: var(--bg-primary);
+  padding: var(--space-12) var(--space-6);
+  min-height: 100vh;
+}
+
+.container {
+  width: 100%;
+  max-width: 760px;
+}
+
+.emptyState {
+  text-align: center;
+  padding: var(--space-12) var(--space-6);
+  color: var(--text-tertiary);
+  font-size: var(--text-lg);
+  font-weight: 300;
+  letter-spacing: -0.01em;
+}
+
+.linesContainer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}

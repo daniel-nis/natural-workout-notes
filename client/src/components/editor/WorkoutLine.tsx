@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useMutation } from '@apollo/client/react';
 import { PARSE_WORKOUT } from '../../graphql/mutations';
 import type { WorkoutLine as WorkoutLineType, ParsedExercise } from '../../types';
+import styles from './WorkoutLine.module.css';
 
 type WorkoutLineProps = {
     line: WorkoutLineType;
@@ -10,44 +11,29 @@ type WorkoutLineProps = {
     autoFocus?: boolean;
 };
 
-function formatParsedContent(exercises: ParsedExercise[]): string {
-    return exercises.map(ex => {
-        const parts = [ex.exercise];
-        if (ex.weight !== null) parts.push(`${ex.weight} lbs`);
-        if (ex.sets !== null && ex.reps !== null) parts.push(`${ex.sets}x${ex.reps}`);
-        else if (ex.sets !== null) parts.push(`${ex.sets} sets`);
-        else if (ex.reps !== null) parts.push(`${ex.reps} reps`);
-        if (ex.duration !== null) parts.push(`${ex.duration}s`);
-        return parts.join(' - ');
-    }).join(', ');
-};
-
 export default function WorkoutLine({ line, onUpdate, onEnter, autoFocus }: WorkoutLineProps) {
     const inputRef = useRef<HTMLInputElement>(null);
-    
-    // Compute display value from line prop
-    const displayValue = line.status === 'parsed' && line.content 
-        ? formatParsedContent(line.content) 
-        : line.rawInput;
-    
-    const [localValue, setLocalValue] = useState(displayValue);
+    const [localValue, setLocalValue] = useState(line.rawInput);
+    const [justParsed, setJustParsed] = useState(false);
 
     const [parseWorkout] = useMutation(PARSE_WORKOUT, {
         onCompleted: (data) => {
             console.log('Mutation completed:', data)
             onUpdate({
-            ...line,
-            status: 'parsed',
-            content: data.parseWorkout,
-            error: null,
+                ...line,
+                status: 'parsed',
+                content: data.parseWorkout,
+                error: null,
             })
+            setJustParsed(true);
+            setTimeout(() => setJustParsed(false), 600);
         },
         onError: (error) => {
             console.log('Mutation error:', error)
             onUpdate({
-            ...line,
-            status: 'error',
-            error: error.message,
+                ...line,
+                status: 'error',
+                error: error.message,
             })
         },
     });
@@ -57,11 +43,6 @@ export default function WorkoutLine({ line, onUpdate, onEnter, autoFocus }: Work
             inputRef.current.focus();
         }
     }, [autoFocus]);
-
-    // Sync localValue when displayValue changes (when line is parsed)
-    useEffect(() => {
-        setLocalValue(displayValue);
-    }, [displayValue]);
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter') {
@@ -84,39 +65,76 @@ export default function WorkoutLine({ line, onUpdate, onEnter, autoFocus }: Work
         }
     };
 
+    // Processing state
     if (line.status === 'processing') {
         return (
-            <div style={{ padding: '0.5em', fontStyle: 'italic', color: '#888' }}>
-                {line.rawInput} ⏳
+            <div className={styles.line}>
+                <div className={styles.processing}>
+                    <div className={styles.spinner} />
+                    <span>{line.rawInput}</span>
+                </div>
             </div>
-        )
+        );
     }
 
+    // Parsed state
+    if (line.status === 'parsed' && line.content) {
+        return (
+            <div className={styles.line}>
+                <div className={styles.parsed}>
+                    {line.content.map((ex, idx) => (
+                        <div
+                            key={idx}
+                            className={`${styles.exerciseCard} ${justParsed ? styles.justParsed : ''}`}
+                        >
+                            <span className={styles.exerciseName}>{ex.exercise}</span>
+                            <div className={styles.exerciseStats}>
+                                {ex.weight !== undefined && ex.weight !== null && ex.weight > 0 && (
+                                    <div className={styles.stat}>
+                                        <span className={styles.statValue}>{ex.weight}</span>
+                                        <span className={styles.statLabel}>lbs</span>
+                                    </div>
+                                )}
+                                {ex.sets !== undefined && ex.sets !== null && ex.reps !== undefined && ex.reps !== null && (
+                                    <div className={styles.stat}>
+                                        <span className={styles.statValue}>{ex.sets}×{ex.reps}</span>
+                                    </div>
+                                )}
+                                {ex.duration !== undefined && ex.duration !== null && (
+                                    <div className={styles.stat}>
+                                        <span className={styles.statValue}>{ex.duration}</span>
+                                        <span className={styles.statLabel}>s</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
+    // Editing state
     return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%' }}>
-            <input
-                ref={inputRef}
-                type="text"
-                value={localValue}
-                onChange={(e) => setLocalValue(e.target.value)}
-                onKeyDown={handleKeyDown}
-                style={{ 
-                    width: '100%', 
-                    padding: '0.5em',
-                    backgroundColor: line.status === 'error' ? '#ffe6e6' : 'transparent',
-                    border: 'none',
-                    borderBottom: '1px solid #2e2e2eff',
-                    outline: 'none',
-                    fontSize: '1rem',
-                    color: 'inherit',
-                 }}
-                placeholder="Enter workout line..."
-            />
-            {line.status === 'error' && (
-                <div style={{ color: 'red', cursor: 'help' }}>
-                    {line.error} ⚠️
+        <div className={styles.line}>
+            <div className={styles.inputWrapper}>
+                <input
+                    ref={inputRef}
+                    className={styles.input}
+                    data-error={line.status === 'error'}
+                    type="text"
+                    value={localValue}
+                    onChange={(e) => setLocalValue(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Bench press 100 3x10..."
+                />
+            </div>
+            {line.status === 'error' && line.error && (
+                <div className={styles.errorBanner}>
+                    <div className={styles.errorIcon}>!</div>
+                    <span className={styles.errorMessage}>{line.error}</span>
                 </div>
             )}
         </div>
-    )
+    );
 }

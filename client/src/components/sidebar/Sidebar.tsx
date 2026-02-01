@@ -1,4 +1,5 @@
-import type { Note} from '../../types';
+import type { Note } from '../../types';
+import styles from './Sidebar.module.css';
 
 type SidebarProps = {
     notes: Note[];
@@ -8,38 +9,49 @@ type SidebarProps = {
 }
 
 export default function Sidebar({ notes, activeNoteId, setActiveNoteId, createNote }: SidebarProps) {
+    const formatDate = (iso: string) => {
+        const date = new Date(iso);
+        const now = new Date();
+        const diffHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+
+        if (diffHours < 24) return 'Today';
+        if (diffHours < 48) return 'Yesterday';
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    };
+
+    const getLineCount = (note: Note) => {
+        return note.lines.filter(line => line.status === 'parsed').length;
+    };
+
     return (
-        <div style={{ 
-            width: '250px', 
-            borderRight: '1px solid #333', 
-            padding: '1rem',
-            display: 'flex',
-            flexDirection: 'column',
-            }}>
-            <button onClick={createNote} style={{ marginBottom: '1rem', borderRadius: '12px' }}>
-                + New Note
-            </button>
-            
-            <div style={{ flex: 1, overflowY: 'auto' }}>
-                {notes.length === 0 && <p style={{ color: '#666' }}>No notes yet</p>}
-                
+        <div className={styles.sidebar}>
+            <div className={styles.header}>
+                <div className={styles.logo}>Easy Lift Notes</div>
+                <button onClick={createNote} className={styles.newNoteButton}>
+                    <span className={styles.newNoteIcon}>+</span>
+                    <span className={styles.newNoteText}>New Note</span>
+                </button>
+            </div>
+
+            <div className={styles.notesList}>
+                {notes.length === 0 && (
+                    <div className={styles.emptyState}>No notes yet. Create one to get started.</div>
+                )}
+
                 {notes.map(note => (
-                <div
-                    key={note.id}
-                    onClick={() => setActiveNoteId(note.id)}
-                    style={{
-                    padding: '0.75rem',
-                    marginBottom: '0.5rem',
-                    cursor: 'pointer',
-                    borderRadius: '12px',
-                    backgroundColor: note.id === activeNoteId ? '#333' : 'transparent',
-                    }}
-                >
-                    <div style={{ fontWeight: 500 }}>{note.title}</div>
-                    <div style={{ fontSize: '0.8rem', color: '#888' }}>
-                    {new Date(note.createdAt).toLocaleDateString()}
+                    <div
+                        key={note.id}
+                        onClick={() => setActiveNoteId(note.id)}
+                        className={`${styles.noteItem} ${note.id === activeNoteId ? styles.active : ''}`}
+                    >
+                        <div className={styles.noteTitle}>{note.title}</div>
+                        <div className={styles.noteMetadata}>
+                            <span className={styles.noteDate}>{formatDate(note.updatedAt)}</span>
+                            {getLineCount(note) > 0 && (
+                                <span className={styles.noteCount}>{getLineCount(note)} exercises</span>
+                            )}
+                        </div>
                     </div>
-                </div>
                 ))}
             </div>
         </div>

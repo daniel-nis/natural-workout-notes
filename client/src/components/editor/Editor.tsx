@@ -1,5 +1,7 @@
 import type { Note, WorkoutLine as WorkoutLineType } from '../../types';
 import WorkoutLine from './WorkoutLine';
+import NoteHeader from './NoteHeader';
+import styles from './Editor.module.css';
 
 type EditorProps = {
     note: Note | null;
@@ -9,11 +11,13 @@ type EditorProps = {
 export default function Editor({ note, updateNote }: EditorProps) {
     if (!note) {
         return (
-            <div style={{ flex: 1, padding: '2em', color: '#666' }}>
-                <p>Select a note or create a new one</p>
+            <div className={styles.editor}>
+                <div className={styles.container}>
+                    <p className={styles.emptyState}>Select a note or create a new one</p>
+                </div>
             </div>
         );
-    };
+    }
 
     const updateLine = (updatedLine: WorkoutLineType) => {
         updateNote({
@@ -35,19 +39,21 @@ export default function Editor({ note, updateNote }: EditorProps) {
     }
 
     return (
-        <div style={{ flex: 1, padding: '2rem', maxWidth: '800px' }}>
-            <h2 style={{ marginBottom: '1.5rem' }}>{note.title}</h2>
-            
-            <div>
-                {note.lines.map((line, index) => (
-                    <WorkoutLine
-                        key={line.id}
-                        line={line}
-                        onUpdate={updateLine}
-                        onEnter={addNewLine}
-                        autoFocus={index === note.lines.length - 1}
-                    />
-                ))}
+        <div className={styles.editor}>
+            <div className={styles.container}>
+                <NoteHeader note={note} updateNote={updateNote} />
+
+                <div className={styles.linesContainer}>
+                    {note.lines.map((line, index) => (
+                        <WorkoutLine
+                            key={line.id}
+                            line={line}
+                            onUpdate={updateLine}
+                            onEnter={addNewLine}
+                            autoFocus={index === note.lines.length - 1}
+                        />
+                    ))}
+                </div>
             </div>
         </div>
     );
